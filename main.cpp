@@ -20,7 +20,7 @@
 #include <mpi.h>
 #include <omp.h>
 
-#define ROOT 3
+#define ROOT 0
 
 // HEADERS
  #include <nccl.h>

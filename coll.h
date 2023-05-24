@@ -583,71 +583,99 @@ void validate(int *sendbuf_d, int *recvbuf_d, size_t count, int pattern, Coll &c
   cudaMallocHost(&sendbuf, count * numproc * sizeof(int));
   cudaMallocHost(&recvbuf, count * numproc * sizeof(int));
 
+  for(int p = 0; p < numproc; p++)
+    for(size_t i = p * count; i < (p + 1) * count; i++)
+      sendbuf[i] = i;
+  cudaMemcpy(sendbuf_d, sendbuf, count * sizeof(int) * numproc, cudaMemcpyHostToDevice);
+  memset(recvbuf, -1, count * numproc * sizeof(int));
+  cudaMemset(recvbuf_d, -1, count * numproc * sizeof(int));
+  cudaStream_t stream;
+  cudaStreamCreate(&stream);
+  bool pass = true;
+
+  cudaDeviceSynchronize();
+  MPI_Barrier(MPI_COMM_WORLD);
+
   switch(pattern) {
     case 1:
-      if(myid == ROOT)
-        printf("VERIFY GATHER\n");
-      for(size_t i = 0; i < count; i++)
-        sendbuf[i] = myid;
-
-      cudaMemcpy(sendbuf_d, sendbuf, count * sizeof(int), cudaMemcpyHostToDevice);
-      if(myid == ROOT) {
-        memset(recvbuf, -1, count * numproc * sizeof(int));
-        cudaMemset(recvbuf_d, -1, count * numproc * sizeof(int));
-      }
-
-      coll.run();
-
-      if(myid == ROOT) {
-        cudaMemcpy(recvbuf, recvbuf_d, count * sizeof(int) * numproc, cudaMemcpyDeviceToHost);
-        bool pass = true;
-        for(int p = 0; p < numproc; p++)
-          for(size_t i = p * count; i < (p + 1) * count; i++) {
-            // printf("myid %d recvbuf[%d] = %d\n", myid, i, recvbuf[i]);
-            if(recvbuf[i] != p)
-              pass = false;
+      {
+        if(myid == ROOT) printf("VERIFY GATHER\n");
+        coll.run();
+        if(myid == ROOT) {
+          cudaMemcpyAsync(recvbuf, recvbuf_d, count * sizeof(int) * numproc, cudaMemcpyDeviceToHost, stream);
+          cudaStreamSynchronize(stream);
+          for(int p = 0; p < numproc; p++)
+            for(size_t i = 0; i < count; i++) {
+              // printf("myid %d recvbuf[%d] = %d\n", myid, i, recvbuf[i]);
+              if(recvbuf[p * count + i] != i)
+                pass = false;
+            }
         }
-        if(pass)
-          printf("PASSED!\n");
-        else
-          printf("FAILED!!!\n");
-        printf("\n");
       }
       break;
     case 2:
-      if(myid == ROOT) {
-        printf("VERIFY SCATTER\n");
+      {
+        if(myid == ROOT) printf("VERIFY SCATTER\n");
+        coll.run();
+        cudaMemcpyAsync(recvbuf, recvbuf_d, count * sizeof(int), cudaMemcpyDeviceToHost, stream);
+        cudaStreamSynchronize(stream);
+        for(size_t i = 0; i < count; i++) {
+          // printf("myid %d recvbuf[%d] = %d\n", myid, i, recvbuf[i]);
+          if(recvbuf[i] != myid * count + i)
+            pass = false;
+        }
+      }
+      break;
+    case 4:
+      {
+        if(myid == ROOT) printf("VERIFY BCAST\n");
+        coll.run();
+        cudaMemcpyAsync(recvbuf, recvbuf_d, count * sizeof(int), cudaMemcpyDeviceToHost, stream);
+        cudaStreamSynchronize(stream);
+        for(size_t i = 0; i < count; i++) {
+          // printf("myid %d recvbuf[%d] = %d\n", myid, i, recvbuf[i]);
+          if(recvbuf[i] != i)
+            pass = false;
+        }
+      }
+      break;
+    case 5:
+      {
+        if(myid == ROOT) printf("VERIFY ALL-TO-ALL\n");
+        coll.run();
+        cudaMemcpyAsync(recvbuf, recvbuf_d, count * numproc * sizeof(int), cudaMemcpyDeviceToHost, stream);
+        cudaStreamSynchronize(stream);
         for(int p = 0; p < numproc; p++)
-          for(size_t i = p * count; i < (p + 1) * count; i++)
-            sendbuf[i] = p;
-        cudaMemcpy(sendbuf_d, sendbuf, count * sizeof(int) * numproc, cudaMemcpyHostToDevice);
+          for(size_t i = 0; i < count; i++) {
+            // printf("myid %d recvbuf[%d] = %d\n", myid, i, recvbuf[i]);
+            if(recvbuf[p * count + i] != myid * count + i)
+              pass = false;
+          }
       }
-      memset(recvbuf, -1, count * sizeof(int));
-      cudaMemset(recvbuf_d, -1, count * sizeof(int));
-
-      cudaStream_t stream;
-      cudaStreamCreate(&stream);
-
-      coll.run();
-
-      cudaMemcpyAsync(recvbuf, recvbuf_d, count * sizeof(int), cudaMemcpyDeviceToHost, stream);
-      //cudaMemcpy(recvbuf, recvbuf_d, count * sizeof(int), cudaMemcpyDeviceToHost);
-      cudaStreamSynchronize(stream);
-      bool pass = true;
-      for(size_t i = 0; i < count; i++) {
-        // printf("myid %d recvbuf[%d] = %d\n", myid, i, recvbuf[i]);
-        if(recvbuf[i] != myid)
-          pass = false;
+      break;
+    case 7:
+      {
+        if(myid == ROOT) printf("VERIFY ALL-GATHER\n");
+        coll.run();
+        cudaMemcpyAsync(recvbuf, recvbuf_d, count * numproc * sizeof(int), cudaMemcpyDeviceToHost, stream);
+        cudaStreamSynchronize(stream);
+        for(int p = 0; p < numproc; p++)
+          for(size_t i = 0; i < count; i++) {
+            // printf("myid %d recvbuf[%d] = %d\n", myid, i, recvbuf[i]);
+            if(recvbuf[p * count + i] != i)
+              pass = false;
+          }
       }
-      MPI_Allreduce(MPI_IN_PLACE, &pass, 1, MPI_C_BOOL, MPI_LAND, MPI_COMM_WORLD);
-      if(myid == ROOT) {
-        if(pass)
-          printf("PASSED!\n");
-        else
-          printf("FAILED!!!\n");
-        printf("\n");
-      }
-    break;
+      break;
+  }
+
+  MPI_Allreduce(MPI_IN_PLACE, &pass, 1, MPI_C_BOOL, MPI_LAND, MPI_COMM_WORLD);
+  if(myid == ROOT) {
+    if(pass) 
+      printf("PASSED!\n");
+    else 
+      printf("FAILED!!!\n");
+    printf("\n");
   }
 
   cudaFreeHost(sendbuf);

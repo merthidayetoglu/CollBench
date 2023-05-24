@@ -594,7 +594,6 @@ namespace CommBench
           cudaMemcpyAsync(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), cudaMemcpyDeviceToDevice, stream_ipc[send]);
 #elif defined PORT_HIP
           hipMemcpyAsync(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), hipMemcpyDeviceToDevice, stream_ipc[send]);
-          hipEventRecord(sendevent_ipc[send], stream_ipc[send]);
 #elif defined PORT_SYCL
 	  q->memcpy(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T)).wait();
 #endif
@@ -628,12 +627,11 @@ namespace CommBench
           MPI_Isend(&test, 1, MPI_C_BOOL, sendproc[send], 0, comm_mpi, sendrequest + send);
         }
 	for(int recv = 0; recv < numrecv; recv++) {
-          bool test;
+          bool test = false;
           MPI_Irecv(&test, 1, MPI_C_BOOL, recvproc[recv], 0, comm_mpi, recvrequest + recv);
 	}
-        MPI_Waitall(numrecv, recvrequest, MPI_STATUSES_IGNORE);
         MPI_Waitall(numsend, sendrequest, MPI_STATUSES_IGNORE);
-        // MPI_Barrier(comm_mpi);
+        MPI_Waitall(numrecv, recvrequest, MPI_STATUSES_IGNORE);
         break;
     }
   } // Comm::wait()
