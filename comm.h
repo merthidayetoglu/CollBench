@@ -630,7 +630,7 @@ namespace CommBench
           bool test = false;
           MPI_Irecv(&test, 1, MPI_C_BOOL, recvproc[recv], 0, comm_mpi, recvrequest + recv);
 	}
-        MPI_Waitall(numsend, sendrequest, MPI_STATUSES_IGNORE);
+        // MPI_Waitall(numsend, sendrequest, MPI_STATUSES_IGNORE);
         MPI_Waitall(numrecv, recvrequest, MPI_STATUSES_IGNORE);
         break;
     }
