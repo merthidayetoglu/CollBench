@@ -33,12 +33,13 @@
 // #define PORT_HIP
 // #define PORT_SYCL
 
-#include "../comm.h"
+#include "comm.h"
+namespace Comm = CommBench;
 
 #include "coll.h"
 
 // UTILITIES
-#include "util.h"
+#include "../CommBench/util.h"
 void print_args();
 
 // USER DEFINED TYPE
@@ -68,11 +69,12 @@ int main(int argc, char *argv[])
   // printf("myid %d %s\n",myid, machine_name);
 
   // INPUT PARAMETERS
-  if(argc != 5) {print_args(); MPI_Finalize(); return 0;}
-  int pattern = atoi(argv[1]);
-  size_t count = atoi(argv[2]);
-  int warmup = atoi(argv[3]);
-  int numiter = atoi(argv[4]);
+  if(argc != 6) {printf("arcgc: %d\n", argc); print_args(); MPI_Finalize(); return 0;}
+  int library = atoi(argv[1]);
+  int pattern = atoi(argv[2]);
+  size_t count = atoi(argv[3]);
+  int warmup = atoi(argv[4]);
+  int numiter = atoi(argv[5]);
 
   // PRINT NUMBER OF PROCESSES AND THREADS
   if(myid == ROOT)
@@ -112,7 +114,7 @@ int main(int argc, char *argv[])
   // Coll::Comm_direct<Type> coll(MPI_COMM_WORLD, Comm::NCCL);
   // Coll::Comm_direct<Type> coll(MPI_COMM_WORLD, 4, Comm::NCCL, Comm::IPC);
   // Coll::Comm_direct<Type> coll(MPI_COMM_WORLD, 4, 1, Comm::NCCL, Comm::IPC, Comm::IPC);
-  Comm::Comm<Type> coll(MPI_COMM_WORLD, Comm::NCCL);
+  Comm::Comm<Type> coll(MPI_COMM_WORLD, (Comm::library) library);
 
   switch(pattern) {
     case 0:
@@ -167,7 +169,8 @@ int main(int argc, char *argv[])
   }
   // coll.init();
 
-  validate(sendbuf_d, recvbuf_d, count, pattern, coll);
+  for(int iter = 0; iter < numiter; iter++)
+    validate(sendbuf_d, recvbuf_d, count, pattern, coll);
 
   return 0;
 
@@ -204,7 +207,11 @@ void print_args() {
   if(myid == ROOT) {
     printf("\n");
     printf("CollBench requires four arguments:\n");
-    printf("1. pattern:\n");
+    printf("1. library:\n");
+    printf("      0 for IPC\n");
+    printf("      1 for MPI\n");
+    printf("      2 for NCCL\n");
+    printf("2. pattern:\n");
     printf("      1 for Gather\n");
     printf("      2 for Scatter\n");
     printf("      3 for Reduce\n");
@@ -213,9 +220,9 @@ void print_args() {
     printf("      6 for Allreduce\n");
     printf("      7 for Allgather\n");
     printf("      8 for ReduceScatter\n");
-    printf("2. count: number of 4-byte elements\n");
-    printf("3. warmup: number of warmup rounds\n");
-    printf("4. numiter: number of measurement rounds\n");
+    printf("3. count: number of 4-byte elements\n");
+    printf("4. warmup: number of warmup rounds\n");
+    printf("5. numiter: number of measurement rounds\n");
     printf("where on can run CollBench as\n");
     printf("mpirun ./CollBench count warmup numiter\n");
     printf("\n");
