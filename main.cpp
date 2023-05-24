@@ -20,7 +20,7 @@
 #include <mpi.h>
 #include <omp.h>
 
-#define ROOT 0
+#define ROOT 3
 
 // HEADERS
  #include <nccl.h>
@@ -33,7 +33,7 @@
 // #define PORT_HIP
 // #define PORT_SYCL
 
-#include "comm.h"
+#include "../CommBench/comm.h"
 namespace Comm = CommBench;
 
 #include "coll.h"
