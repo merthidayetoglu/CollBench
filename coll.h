@@ -589,6 +589,7 @@ void validate(int *sendbuf_d, int *recvbuf_d, size_t count, int pattern, Coll &c
         printf("VERIFY GATHER\n");
       for(size_t i = 0; i < count; i++)
         sendbuf[i] = myid;
+
       cudaMemcpy(sendbuf_d, sendbuf, count * sizeof(int), cudaMemcpyHostToDevice);
       if(myid == ROOT) {
         memset(recvbuf, -1, count * numproc * sizeof(int));
@@ -602,7 +603,7 @@ void validate(int *sendbuf_d, int *recvbuf_d, size_t count, int pattern, Coll &c
         bool pass = true;
         for(int p = 0; p < numproc; p++)
           for(size_t i = p * count; i < (p + 1) * count; i++) {
-            printf("myid %d recvbuf[%d] = %d\n", myid, i, recvbuf[i]);
+            // printf("myid %d recvbuf[%d] = %d\n", myid, i, recvbuf[i]);
             if(recvbuf[i] != p)
               pass = false;
         }
@@ -630,11 +631,11 @@ void validate(int *sendbuf_d, int *recvbuf_d, size_t count, int pattern, Coll &c
       coll.run();
 
       cudaMemcpyAsync(recvbuf, recvbuf_d, count * sizeof(int), cudaMemcpyDeviceToHost, stream);
-      // cudaMemcpy(recvbuf, recvbuf_d, count * sizeof(int), cudaMemcpyDeviceToHost);
+      //cudaMemcpy(recvbuf, recvbuf_d, count * sizeof(int), cudaMemcpyDeviceToHost);
       cudaStreamSynchronize(stream);
       bool pass = true;
       for(size_t i = 0; i < count; i++) {
-        printf("myid %d recvbuf[%d] = %d\n", myid, i, recvbuf[i]);
+        // printf("myid %d recvbuf[%d] = %d\n", myid, i, recvbuf[i]);
         if(recvbuf[i] != myid)
           pass = false;
       }
@@ -651,7 +652,5 @@ void validate(int *sendbuf_d, int *recvbuf_d, size_t count, int pattern, Coll &c
 
   cudaFreeHost(sendbuf);
   cudaFreeHost(recvbuf);
-  //delete[] sendbuf;
-  //delete[] recvbuf;
 };
 

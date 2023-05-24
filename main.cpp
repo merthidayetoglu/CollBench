@@ -169,12 +169,14 @@ int main(int argc, char *argv[])
   }
   // coll.init();
 
+
   for(int iter = 0; iter < numiter; iter++)
     validate(sendbuf_d, recvbuf_d, count, pattern, coll);
 
+  coll.measure(warmup, numiter);
+
   return 0;
 
-  coll.measure(warmup, numiter);
 
 // DEALLOCATE
 #ifdef PORT_CUDA

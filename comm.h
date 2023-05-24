@@ -592,7 +592,6 @@ namespace CommBench
         for(int send = 0; send < numsend; send++) {
 #ifdef PORT_CUDA
           cudaMemcpyAsync(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), cudaMemcpyDeviceToDevice, stream_ipc[send]);
-          // cudaEventRecord(sendevent_ipc[send], stream_ipc[send]);
 #elif defined PORT_HIP
           hipMemcpyAsync(recvbuf_ipc[send] + recvoffset_ipc[send], sendbuf[send] + sendoffset[send], sendcount[send] * sizeof(T), hipMemcpyDeviceToDevice, stream_ipc[send]);
           hipEventRecord(sendevent_ipc[send], stream_ipc[send]);
@@ -619,28 +618,22 @@ namespace CommBench
 #endif
         break;
       case IPC:
-#ifdef PORT_CUDA
         for(int send = 0; send < numsend; send++) {
+#ifdef PORT_CUDA
           cudaStreamSynchronize(stream_ipc[send]);
+#elif defined PORT_HIP
+          hipStreamSynchronize(stream_ipc[send]);
+#endif
           bool test = true;
-          // MPI_Irecv(&test, 1, MPI_C_BOOL, sendproc[send], 0, comm_mpi, sendreq + send);
           MPI_Isend(&test, 1, MPI_C_BOOL, sendproc[send], 0, comm_mpi, sendrequest + send);
         }
 	for(int recv = 0; recv < numrecv; recv++) {
           bool test;
-          //MPI_Issend(&test, 1, MPI_C_BOOL, recvproc[recv], 0, comm_mpi, recvreq + recv);
           MPI_Irecv(&test, 1, MPI_C_BOOL, recvproc[recv], 0, comm_mpi, recvrequest + recv);
-          // MPI_Probe(recvproc[recv], 0, comm_mpi, MPI_STATUS_IGNORE);
 	}
         MPI_Waitall(numrecv, recvrequest, MPI_STATUSES_IGNORE);
-        // MPI_Waitall(numsend, sendrequest, MPI_STATUSES_IGNORE);
+        MPI_Waitall(numsend, sendrequest, MPI_STATUSES_IGNORE);
         // MPI_Barrier(comm_mpi);
-#elif defined PORT_HIP
-        for(int send = 0; send < numsend; send++)
-          hipEventSynchronize(sendevent_ipc[send]);
-	for(int recv = 0; recv < numrecv; recv++)
-          cudaEventSynchronize(recvevent_ipc[recv]);
-#endif
         break;
     }
   } // Comm::wait()
